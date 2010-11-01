@@ -9,22 +9,20 @@ from IPython.core import ipapi
 from IPython.core.error import TryNext, UsageError
 ip = ipapi.get()
 
-import pickleshare
-
 import inspect,pickle,os,sys,textwrap
 from IPython.core.fakemodule import FakeModule
 
 def restore_aliases(self):
-    ip = self.getapi()
-    staliases = ip.db.get('stored_aliases', {})
+    staliases = self.db.get('stored_aliases', {})
+    am = self.alias_manager
     for k,v in staliases.items():
         #print "restore alias",k,v # dbg
         #self.alias_table[k] = v
-        ip.define_alias(k,v)
+        am.define_alias(k,v)
 
 
-def refresh_variables(ip):
-    db = ip.db
+def refresh_variables(self):
+    db = self.db
     for key in db.keys('autorestore/*'):
         # strip autorestore
         justkey = os.path.basename(key)
@@ -35,16 +33,15 @@ def refresh_variables(ip):
             print "The error was:",sys.exc_info()[0]
         else:
             #print "restored",justkey,"=",obj #dbg
-            ip.user_ns[justkey] = obj
+            self.user_ns[justkey] = obj
     
 
-def restore_dhist(ip):
-    db = ip.db
-    ip.user_ns['_dh'] = db.get('dhist',[])
+def restore_dhist(self):
+    db = self.db
+    self.user_ns['_dh'] = db.get('dhist',[])
     
 def restore_data(self):
-    ip = self.getapi()
-    refresh_variables(ip)
+    refresh_variables(self)
     restore_aliases(self)
     restore_dhist(self)
     raise TryNext
@@ -75,7 +72,7 @@ def magic_store(self, parameter_s=''):
     %store -z       - Remove all variables from storage\\
     %store -r       - Refresh all variables from store (delete current vals)\\
     %store foo >a.txt  - Store value of foo to new file a.txt\\
-    %store foo >>a.txt - Append value of foo to file a.txt\\   
+    %store foo >>a.txt - Append value of foo to file a.txt\\
     
     It should be noted that if you change the value of a variable, you
     need to %store it again if you want to persist the new value.
@@ -88,8 +85,7 @@ def magic_store(self, parameter_s=''):
     
     opts,argsl = self.parse_options(parameter_s,'drz',mode='string')
     args = argsl.split(None,1)
-    ip = self.getapi()
-    db = ip.db
+    db = self.db
     # delete
     if opts.has_key('d'):
         try:
@@ -107,13 +103,13 @@ def magic_store(self, parameter_s=''):
             del db[k]
 
     elif opts.has_key('r'):
-        refresh_variables(ip)
+        refresh_variables(self)
 
     
     # run without arguments -> list variables & values
     elif not args:
         vars = self.db.keys('autorestore/*')
-        vars.sort()            
+        vars.sort()
         if vars:
             size = max(map(len,vars))
         else:
@@ -136,7 +132,7 @@ def magic_store(self, parameter_s=''):
                 fil = open(fnam,'a')
             else:
                 fil = open(fnam,'w')
-            obj = ip.ev(args[0])
+            obj = self.ev(args[0])
             print "Writing '%s' (%s) to file '%s'." % (args[0],
               obj.__class__.__name__, fnam)
 
@@ -154,14 +150,14 @@ def magic_store(self, parameter_s=''):
         
         # %store foo
         try:
-            obj = ip.user_ns[args[0]]
+            obj = self.user_ns[args[0]]
         except KeyError:
             # it might be an alias
             # This needs to be refactored to use the new AliasManager stuff.
             if args[0] in self.alias_table:
                 staliases = db.get('stored_aliases',{})
                 staliases[ args[0] ] = self.alias_table[ args[0] ]
-                db['stored_aliases'] = staliases                
+                db['stored_aliases'] = staliases
                 print "Alias stored:", args[0], self.alias_table[ args[0] ]
                 return
             else:
@@ -170,11 +166,11 @@ def magic_store(self, parameter_s=''):
         else:
             if isinstance(inspect.getmodule(obj), FakeModule):
                 print textwrap.dedent("""\
-                Warning:%s is %s 
+                Warning:%s is %s
                 Proper storage of interactively declared classes (or instances
                 of those classes) is not possible! Only instances
                 of classes in real modules on file system can be %%store'd.
-                """ % (args[0], obj) ) 
+                """ % (args[0], obj) )
                 return
             #pickled = pickle.dumps(obj)
             self.db[ 'autorestore/' + args[0] ] = obj
