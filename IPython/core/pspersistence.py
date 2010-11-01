@@ -9,7 +9,7 @@ from IPython.core import ipapi
 from IPython.core.error import TryNext, UsageError
 ip = ipapi.get()
 
-import inspect,pickle,os,sys,textwrap
+import inspect,os,sys,textwrap
 from IPython.core.fakemodule import FakeModule
 
 def restore_aliases(self):
@@ -108,17 +108,17 @@ def magic_store(self, parameter_s=''):
     
     # run without arguments -> list variables & values
     elif not args:
-        vars = self.db.keys('autorestore/*')
-        vars.sort()
-        if vars:
-            size = max(map(len,vars))
+        varnames = self.db.keys('autorestore/*')
+        varnames.sort()
+        if varnames:
+            size = max(map(len,varnames))
         else:
             size = 0
             
         print 'Stored variables and their in-db values:'
         fmt = '%-'+str(size)+'s -> %s'
         get = db.get
-        for var in vars:
+        for var in varnames:
             justkey = os.path.basename(var)
             # print 30 first characters from every var
             print fmt % (justkey,repr(get(var,'<unavailable>'))[:50])
