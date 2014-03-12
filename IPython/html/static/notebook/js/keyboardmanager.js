@@ -129,7 +129,7 @@ var IPython = (function (IPython) {
                 }
             }
         },
-        'alt+-' : {
+        'alt+enter' : {
             help    : 'split cell',
             help_index : 'ea',
             handler : function (event) {
